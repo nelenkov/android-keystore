@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:orientation="vertical" >
+
+    <TextView
+        android:id="@+id/encrypted_label_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="3dp"
+        android:text="Encrypted string: "
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/encrypted_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="3dp"
+        android:singleLine="true"
+        android:text="" />
+
+    <TextView
+        android:id="@+id/decrypted_label_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="3dp"
+        android:text="Decrypted string: "
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/decrypted_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="3dp"
+        android:singleLine="true"
+        android:text="" />
+
+    <Button
+        android:id="@+id/encrypt_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Encrypt" />
+
+    <Button
+        android:id="@+id/decrypt_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Decrypt" />
+
+    <Button
+        android:id="@+id/list_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="List keys" />
+
+    <Button
+        android:id="@+id/reset_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Reset" />
+
+    <TextView
+        android:id="@+id/key_list_label_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="3dp"
+        android:text="Keys in keystore: "
+        android:textStyle="bold" />
+
+    <ListView
+        android:id="@+id/key_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" >
+    </ListView>
+
+</LinearLayout>
