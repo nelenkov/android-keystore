@@ -1,18 +1,24 @@
 package org.nick.androidkeystore;
 
 import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.interfaces.RSAPublicKey;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.nick.androidkeystore.android.security.KeyStore;
+import org.nick.androidkeystore.android.security.KeyStoreJb43;
 
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.security.KeyChain;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -27,6 +33,9 @@ public class KeystoreActivity extends Activity implements OnClickListener {
 
     private static final String TAG = KeystoreActivity.class.getSimpleName();
 
+    private static final boolean IS_JB43 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2;
+    private static final boolean IS_JB = Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN;
+
     private static final String EXTRA_CIPHERTEXT = "org.nick.androidkeystore.CIPHERTEXT";
     private static final String EXTRA_KEY_NAME = "org.nick.androidkeystore.KEY_NAME";
     private static final String EXTRA_PLAINTEXT = "org.nick.androidkeystore.PLAINTEXT";
@@ -36,7 +45,8 @@ public class KeystoreActivity extends Activity implements OnClickListener {
     public static final String UNLOCK_ACTION = "com.android.credentials.UNLOCK";
     public static final String RESET_ACTION = "com.android.credentials.RESET";
 
-    private static final String KEY_NAME = "test_key";
+    private static final String KEY_NAME = "aes_key";
+    private static final String RSA_KEY_NAME = "rsa_key";
     private static final String PLAIN_TEXT = "Hello, KeyStore!";
 
     private static int keyNum = 0;
@@ -46,6 +56,10 @@ public class KeystoreActivity extends Activity implements OnClickListener {
 
     private Button encryptButton;
     private Button decryptButton;
+    private Button signButton;
+    private Button verifyButton;
+    private Button encryptRsaButton;
+    private Button decryptRsaButton;
     private Button listButton;
     private Button resetButton;
 
@@ -54,6 +68,8 @@ public class KeystoreActivity extends Activity implements OnClickListener {
     private KeyStore ks;
 
     private String encryptionKeyName;
+    private String signKeyName;
+    private String rsaEncryptKeyName;
 
     /** Called when the activity is first created. */
     @Override
@@ -61,6 +77,8 @@ public class KeystoreActivity extends Activity implements OnClickListener {
         requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 
         super.onCreate(savedInstanceState);
+
+        PRNGFixes.apply();
 
         setContentView(R.layout.main);
 
@@ -75,7 +93,11 @@ public class KeystoreActivity extends Activity implements OnClickListener {
             decryptedText.setText(plaintext);
         }
 
-        ks = KeyStore.getInstance();
+        if (IS_JB43) {
+            ks = KeyStoreJb43.getInstance();
+        } else {
+            ks = KeyStore.getInstance();
+        }
 
         displayKeystoreState();
     }
@@ -102,7 +124,7 @@ public class KeystoreActivity extends Activity implements OnClickListener {
             }
         }
 
-        protected abstract String[] doWork();
+        protected abstract String[] doWork() throws Exception;
 
         @Override
         protected void onPostExecute(String[] result) {
@@ -117,7 +139,6 @@ public class KeystoreActivity extends Activity implements OnClickListener {
                 return;
             }
 
-
             updateUi(result);
         }
 
@@ -129,6 +150,12 @@ public class KeystoreActivity extends Activity implements OnClickListener {
         decryptButton.setEnabled(enable);
         listButton.setEnabled(enable);
         resetButton.setEnabled(enable);
+        if (IS_JB) {
+            signButton.setEnabled(enable);
+            verifyButton.setEnabled(enable);
+            encryptRsaButton.setEnabled(enable);
+            decryptRsaButton.setEnabled(enable);
+        }
     }
 
     private void displayKeystoreState() {
@@ -139,13 +166,24 @@ public class KeystoreActivity extends Activity implements OnClickListener {
                 Log.d(TAG, "Keystore state: " + ks.state());
                 String status = String.format("Keystore state:%s", ks.state()
                         .toString());
+                String storeType = null;
+                if (IS_JB43) {
+                    storeType = ((KeyStoreJb43) ks).isHardwareBacked() ? "HW-backed"
+                            : "SW only";
+                }
 
-                return new String[] { status };
+                return new String[] { status, storeType };
             }
 
             @Override
+            @SuppressLint("NewApi")
             protected void updateUi(String[] result) {
                 setTitle(result[0]);
+                if (result[1] != null) {
+                    if (IS_JB43) {
+                        getActionBar().setSubtitle(result[1]);
+                    }
+                }
             }
         }.execute();
     }
@@ -160,6 +198,22 @@ public class KeystoreActivity extends Activity implements OnClickListener {
         decryptButton = (Button) findViewById(R.id.decrypt_button);
         decryptButton.setOnClickListener(this);
 
+        signButton = (Button) findViewById(R.id.sign_rsa_button);
+        signButton.setOnClickListener(this);
+        signButton.setEnabled(IS_JB);
+
+        verifyButton = (Button) findViewById(R.id.verify_rsa_button);
+        verifyButton.setOnClickListener(this);
+        verifyButton.setEnabled(IS_JB);
+
+        encryptRsaButton = (Button) findViewById(R.id.encrypt_rsa_button);
+        encryptRsaButton.setOnClickListener(this);
+        encryptRsaButton.setEnabled(IS_JB);
+
+        decryptRsaButton = (Button) findViewById(R.id.decrypt_rsa_button);
+        decryptRsaButton.setOnClickListener(this);
+        decryptRsaButton.setEnabled(IS_JB);
+
         listButton = (Button) findViewById(R.id.list_button);
         listButton.setOnClickListener(this);
 
@@ -169,6 +223,7 @@ public class KeystoreActivity extends Activity implements OnClickListener {
         keyList = (ListView) findViewById(R.id.key_list);
     }
 
+    @TargetApi(18)
     @Override
     protected void onResume() {
         super.onResume();
@@ -177,6 +232,12 @@ public class KeystoreActivity extends Activity implements OnClickListener {
 
         if (ks.state() == KeyStore.State.UNLOCKED) {
             showKeys();
+        }
+
+        if (IS_JB43) {
+            Log.d(TAG,
+                    "RSA supported " + KeyChain.isKeyAlgorithmSupported("RSA"));
+            Log.d(TAG, "RSA bound " + KeyChain.isBoundKeyAlgorithm("RSA"));
         }
     }
 
@@ -213,11 +274,11 @@ public class KeystoreActivity extends Activity implements OnClickListener {
 
         try {
             if (v.getId() == R.id.reset_button) {
-                reset();
-                //                resetKeystore();
+                deleteAllKeys();
+                // resetKeystore();
             } else if (v.getId() == R.id.list_button) {
                 showKeys();
-                //                testKeystore();
+                // testKeystore();
             } else if (v.getId() == R.id.encrypt_button) {
                 encrypt();
             } else if (v.getId() == R.id.decrypt_button) {
@@ -230,12 +291,73 @@ public class KeystoreActivity extends Activity implements OnClickListener {
                 }
 
                 decrypt();
+            } else if (v.getId() == R.id.sign_rsa_button) {
+                signRsaPss();
+            } else if (v.getId() == R.id.verify_rsa_button) {
+                verifyRsaPss();
+            } else if (v.getId() == R.id.encrypt_rsa_button) {
+                encryptRsaOaep();
+            } else if (v.getId() == R.id.decrypt_rsa_button) {
+                decryptRsa();
             }
         } catch (Exception e) {
             Log.e(TAG, "Unexpected error: " + e.getMessage(), e);
             Toast.makeText(this, "Unexpected error: " + e.getMessage(),
                     Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void encryptRsaOaep() {
+        new KeystoreTask() {
+
+            @Override
+            protected String[] doWork() throws Exception {
+                String alias = RSA_KEY_NAME + keyNum;
+
+                KeyPair kp = Crypto.generateRsaPairWithGenerator(
+                        KeystoreActivity.this, alias);
+                Log.d(TAG, String.format("Genarated %d bit RSA key pair",
+                        ((RSAPublicKey) kp.getPublic()).getModulus()
+                                .bitLength()));
+                rsaEncryptKeyName = alias;
+                keyNum++;
+
+                String ciphertext = Crypto.encryptRsaOaep(PLAIN_TEXT,
+                        rsaEncryptKeyName);
+
+                return new String[] { ciphertext };
+            }
+
+            @Override
+            protected void updateUi(String[] result) {
+                encryptedText.setText(result[0]);
+                decryptedText.setText("");
+
+                showKeys();
+
+            }
+        }.execute();
+    }
+
+    private void decryptRsa() {
+        new KeystoreTask() {
+
+            @Override
+            protected String[] doWork() throws Exception {
+                String plainStr = Crypto.decryptRsaOaep(encryptedText.getText()
+                        .toString(), rsaEncryptKeyName);
+
+                return new String[] { plainStr };
+            }
+
+            @Override
+            protected void updateUi(String[] result) {
+                decryptedText.setText(result[0]);
+
+                showKeys();
+
+            }
+        }.execute();
     }
 
     private void decrypt() {
@@ -253,7 +375,7 @@ public class KeystoreActivity extends Activity implements OnClickListener {
                 }
 
                 SecretKeySpec key = new SecretKeySpec(keyBytes, "AES");
-                String plaintext = Crypto.decrypt(ciphertext, key);
+                String plaintext = Crypto.decryptAesCbc(ciphertext, key);
 
                 return new String[] { plaintext };
             }
@@ -278,14 +400,14 @@ public class KeystoreActivity extends Activity implements OnClickListener {
 
             @Override
             protected String[] doWork() {
-                SecretKey key = Crypto.generateKey();
+                SecretKey key = Crypto.generateAesKey();
                 encryptionKeyName = KEY_NAME + keyNum;
                 boolean success = ks.put(encryptionKeyName, key.getEncoded());
                 Log.d(TAG, "put key success: " + success);
                 checkRc(success);
 
                 keyNum++;
-                String ciphertext = Crypto.encrypt(PLAIN_TEXT, key);
+                String ciphertext = Crypto.encryptAesCbc(PLAIN_TEXT, key);
 
                 return new String[] { ciphertext };
             }
@@ -293,6 +415,7 @@ public class KeystoreActivity extends Activity implements OnClickListener {
             @Override
             protected void updateUi(String[] result) {
                 encryptedText.setText(result[0]);
+                decryptedText.setText("");
 
                 showKeys();
 
@@ -300,16 +423,82 @@ public class KeystoreActivity extends Activity implements OnClickListener {
         }.execute();
     }
 
-    private void reset() {
+    private void signRsaPss() {
         new KeystoreTask() {
 
             @Override
-            protected String[] doWork() {
+            protected String[] doWork() throws Exception {
+                String alias = RSA_KEY_NAME + keyNum;
+                KeyPair kp = Crypto.generateRsaPairWithGenerator(
+                        KeystoreActivity.this, alias);
+                Log.d(TAG, String.format("Genarated %d bit RSA key pair",
+                        ((RSAPublicKey) kp.getPublic()).getModulus()
+                                .bitLength()));
+                signKeyName = alias;
+                keyNum++;
+
+                String signature = Crypto.signRsaPss(signKeyName, PLAIN_TEXT);
+
+                return new String[] { signature };
+            }
+
+            @Override
+            protected void updateUi(String[] result) {
+                encryptedText.setText(result[0]);
+                decryptedText.setText("");
+
+                showKeys();
+
+            }
+        }.execute();
+    }
+
+    private void verifyRsaPss() {
+        new KeystoreTask() {
+
+            @Override
+            protected String[] doWork() throws Exception {
+                String signatureStr = encryptedText.getText().toString();
+                boolean verified = Crypto.verifyRsaPss(signatureStr,
+                        PLAIN_TEXT, signKeyName);
+                Log.d(TAG, "RSA PSS signature verification result: " + verified);
+
+                return new String[] { verified ? "Signature verifies"
+                        : "Invalid signature" };
+            }
+
+            @Override
+            protected void updateUi(String[] result) {
+                if (result == null) {
+                    Toast.makeText(KeystoreActivity.this,
+                            "Signature key key not found in keystore.",
+                            Toast.LENGTH_SHORT).show();
+
+                    return;
+                }
+
+                decryptedText.setText(result[0]);
+            }
+        }.execute();
+    }
+
+    private void deleteAllKeys() {
+        new KeystoreTask() {
+
+            @Override
+            protected String[] doWork() throws Exception {
                 String[] keys = ks.saw("");
                 for (String key : keys) {
                     boolean success = ks.delete(key);
-                    Log.d(TAG, "delete key success: " + success);
-                    checkRc(success);
+                    Log.d(TAG, String.format("delete key '%s' success: %s",
+                            key, success));
+                    if (!success && IS_JB) {
+                        success = ks.delKey(key);
+                        Log.d(TAG, String.format("delKey '%s' success: %s",
+                                key, success));
+                    }
+                    // delete_keypair() is optional, don't fail
+                    // checkRc(success);
                 }
 
                 return null;
@@ -317,6 +506,9 @@ public class KeystoreActivity extends Activity implements OnClickListener {
 
             @Override
             protected void updateUi(String[] result) {
+                encryptionKeyName = null;
+                signKeyName = null;
+
                 encryptedText.setText("");
                 decryptedText.setText("");
 
@@ -346,8 +538,13 @@ public class KeystoreActivity extends Activity implements OnClickListener {
                 for (String keyName : keyNames) {
                     byte[] keyBytes = ks.get(keyName);
 
-                    Log.d(TAG, String.format("\t%s: %s", keyName,
-                            new BigInteger(keyBytes).toString()));
+                    if (keyBytes != null) {
+                        Log.d(TAG, String.format("\t%s: %s", keyName,
+                                new BigInteger(keyBytes).toString()));
+                    } else {
+                        Log.d(TAG, String.format("\t%s: %s", keyName,
+                                "RSA unexportable"));
+                    }
                 }
             }
         }.execute();

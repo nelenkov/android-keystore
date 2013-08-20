@@ -1,3 +1,5 @@
+package org.nick.androidkeystore.android.security;
+
 /*
  * Copyright (C) 2009 The Android Open Source Project
  *
@@ -13,9 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-//package android.security;
-package org.nick.androidkeystore.android.security;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,7 +54,7 @@ public class KeyStore {
 
     private int mError = NO_ERROR;
 
-    private KeyStore() {
+    KeyStore() {
     }
 
     public static KeyStore getInstance() {
@@ -163,6 +162,78 @@ public class KeyStore {
         return mError == KEY_NOT_FOUND;
     }
 
+    private boolean generate(byte[] key) {
+        execute('a', key);
+        return mError == NO_ERROR;
+    }
+
+    public boolean generate(String key) {
+        return generate(getBytes(key));
+    }
+
+    private boolean importKey(byte[] keyName, byte[] key) {
+        execute('m', keyName, key);
+        return mError == NO_ERROR;
+    }
+
+    public boolean importKey(String keyName, byte[] key) {
+        return importKey(getBytes(keyName), key);
+    }
+
+    private byte[] getPubkey(byte[] key) {
+        ArrayList<byte[]> values = execute('b', key);
+        return (values == null || values.isEmpty()) ? null : values.get(0);
+    }
+
+    public byte[] getPubkey(String key) {
+        return getPubkey(getBytes(key));
+    }
+
+    private boolean delKey(byte[] key) {
+        execute('k', key);
+        return mError == NO_ERROR;
+    }
+
+    public boolean delKey(String key) {
+        return delKey(getBytes(key));
+    }
+
+    private byte[] sign(byte[] keyName, byte[] data) {
+        final ArrayList<byte[]> values = execute('n', keyName, data);
+        return (values == null || values.isEmpty()) ? null : values.get(0);
+    }
+
+    public byte[] sign(String key, byte[] data) {
+        return sign(getBytes(key), data);
+    }
+
+    private boolean verify(byte[] keyName, byte[] data, byte[] signature) {
+        execute('v', keyName, data, signature);
+        return mError == NO_ERROR;
+    }
+
+    public boolean verify(String key, byte[] data, byte[] signature) {
+        return verify(getBytes(key), data, signature);
+    }
+
+    private boolean grant(byte[] key, byte[] uid) {
+        execute('x', key, uid);
+        return mError == NO_ERROR;
+    }
+
+    public boolean grant(String key, int uid) {
+        return grant(getBytes(key), Integer.toString(uid).getBytes());
+    }
+
+    private boolean ungrant(byte[] key, byte[] uid) {
+        execute('y', key, uid);
+        return mError == NO_ERROR;
+    }
+
+    public boolean ungrant(String key, int uid) {
+        return ungrant(getBytes(key), Integer.toString(uid).getBytes());
+    }
+
     public int getLastError() {
         return mError;
     }
@@ -229,7 +300,6 @@ public class KeyStore {
     }
 
     private static byte[] getBytes(String string) {
-        //        return string.getBytes(Charsets.UTF_8);
         try {
             return string.getBytes("UTF-8");
         } catch (UnsupportedEncodingException e) {
@@ -238,13 +308,10 @@ public class KeyStore {
     }
 
     private static String toString(byte[] bytes) {
-        //        return new String(bytes, Charsets.UTF_8);
         try {
             return new String(bytes, "UTF-8");
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         }
     }
-
-
 }

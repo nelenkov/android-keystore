@@ -9,7 +9,7 @@
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="3dp"
-        android:text="Encrypted string: "
+        android:text="Encrypted string/Signature: "
         android:textStyle="bold" />
 
     <TextView
@@ -25,7 +25,7 @@
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="3dp"
-        android:text="Decrypted string: "
+        android:text="Decrypted string/Verify result: "
         android:textStyle="bold" />
 
     <TextView
@@ -36,29 +36,78 @@
         android:singleLine="true"
         android:text="" />
 
-    <Button
-        android:id="@+id/encrypt_button"
-        android:layout_width="match_parent"
+    <LinearLayout
+        android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:text="Encrypt" />
+        android:orientation="horizontal" >
 
-    <Button
-        android:id="@+id/decrypt_button"
-        android:layout_width="match_parent"
+        <Button
+            android:id="@+id/encrypt_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Encrypt AES" />
+
+        <Button
+            android:id="@+id/decrypt_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Decrypt AES" />
+    </LinearLayout>
+    
+    <LinearLayout
+        android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:text="Decrypt" />
+        android:orientation="horizontal" >
+
+        <Button
+            android:id="@+id/sign_rsa_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Sign PSS" />
+
+        <Button
+            android:id="@+id/verify_rsa_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Verify PSS" />
+    </LinearLayout>
+    
+     <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal" >
+
+        <Button
+            android:id="@+id/encrypt_rsa_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Encrypt OAEP" />
+
+        <Button
+            android:id="@+id/decrypt_rsa_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Decrypt OAEP" />
+    </LinearLayout>
 
     <Button
         android:id="@+id/list_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="List keys" />
+        android:text="List keys" 
+        android:visibility="gone"/>
 
     <Button
         android:id="@+id/reset_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Reset" />
+        android:text="Delete all keys" />
 
     <TextView
         android:id="@+id/key_list_label_text"
