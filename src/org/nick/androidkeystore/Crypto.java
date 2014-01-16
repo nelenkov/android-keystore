@@ -8,10 +8,13 @@ import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.Provider;
 import java.security.Provider.Service;
+import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Security;
+import java.security.Signature;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
@@ -269,7 +272,34 @@ public class Crypto {
                 .setSubject(
                         new X500Principal(String.format("CN=%s, OU=%s", alais,
                                 ctx.getPackageName())))
-                .setSerialNumber(BigInteger.ONE).setStartDate(notBefore.getTime())
+                .setSerialNumber(BigInteger.ONE)
+                .setStartDate(notBefore.getTime())
+                .setEndDate(notAfter.getTime()).build();
+
+        KeyPairGenerator kpGenerator = KeyPairGenerator.getInstance("RSA",
+                "AndroidKeyStore");
+        kpGenerator.initialize(spec);
+        KeyPair kp = kpGenerator.generateKeyPair();
+
+        return kp;
+    }
+
+    @SuppressLint("NewApi")
+    public static KeyPair generateEcPairWithGenerator(Context ctx, String alais)
+            throws Exception {
+        Calendar notBefore = Calendar.getInstance();
+        Calendar notAfter = Calendar.getInstance();
+        notAfter.add(1, Calendar.YEAR);
+        KeyPairGeneratorSpec spec = new KeyPairGeneratorSpec.Builder(ctx)
+                .setAlias(alais)
+                .setKeyType("EC")
+                // curve
+                .setKeySize(256)
+                .setSubject(
+                        new X500Principal(String.format("CN=%s, OU=%s", alais,
+                                ctx.getPackageName())))
+                .setSerialNumber(BigInteger.ONE)
+                .setStartDate(notBefore.getTime())
                 .setEndDate(notAfter.getTime()).build();
 
         KeyPairGenerator kpGenerator = KeyPairGenerator.getInstance("RSA",
@@ -282,7 +312,7 @@ public class Crypto {
 
     public static String signRsaPss(String keyAlias, String toSign) {
         try {
-            RSAPublicKey pubKey = loadPublicKey(keyAlias);
+            RSAPublicKey pubKey = loadRsaPublicKey(keyAlias);
 
             AndroidRsaEngine rsa = new AndroidRsaEngine(keyAlias, true);
 
@@ -309,22 +339,37 @@ public class Crypto {
         }
     }
 
-    public static RSAPublicKey loadPublicKey(String keyAlias)
+    public static RSAPublicKey loadRsaPublicKey(String keyAlias)
+            throws GeneralSecurityException, IOException {
+        return (RSAPublicKey) loadPublicKey(keyAlias);
+    }
+
+    public static PublicKey loadPublicKey(String keyAlias)
             throws GeneralSecurityException, IOException {
         java.security.KeyStore ks = java.security.KeyStore
                 .getInstance("AndroidKeyStore");
         ks.load(null);
         java.security.KeyStore.Entry keyEntry = ks.getEntry(keyAlias, null);
-        RSAPublicKey pubKey = (RSAPublicKey) ((java.security.KeyStore.PrivateKeyEntry) keyEntry)
-                .getCertificate().getPublicKey();
 
-        return pubKey;
+        return ((java.security.KeyStore.PrivateKeyEntry) keyEntry)
+                .getCertificate().getPublicKey();
+    }
+
+    public static PrivateKey loadPrivateKey(String keyAlias)
+            throws GeneralSecurityException, IOException {
+        java.security.KeyStore ks = java.security.KeyStore
+                .getInstance("AndroidKeyStore");
+        ks.load(null);
+        java.security.KeyStore.Entry keyEntry = ks.getEntry(keyAlias, null);
+
+        return ((java.security.KeyStore.PrivateKeyEntry) keyEntry)
+                .getPrivateKey();
     }
 
     public static boolean verifyRsaPss(String signatureStr, String signedStr,
             String keyAlias) {
         try {
-            RSAPublicKey pubKey = loadPublicKey(keyAlias);
+            RSAPublicKey pubKey = loadRsaPublicKey(keyAlias);
 
             AndroidRsaEngine rsa = new AndroidRsaEngine(keyAlias, true);
 
@@ -339,6 +384,47 @@ public class Crypto {
             signer.update(signedData, 0, signedData.length);
             byte[] signature = fromBase64(signatureStr);
             boolean result = signer.verifySignature(signature);
+
+            return result;
+        } catch (GeneralSecurityException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static String signEc(String keyAlias, String toSign) {
+        try {
+            PrivateKey privKey = loadPrivateKey(keyAlias);
+
+            Signature sig = Signature.getInstance("SHA512WITHECDSA");
+            sig.initSign(privKey);
+            byte[] signedData = toSign.getBytes("UTF-8");
+            sig.update(signedData);
+            byte[] signature = sig.sign();
+
+            return toBase64(signature);
+        } catch (GeneralSecurityException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (DataLengthException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static boolean verifyEc(String signatureStr, String signedStr,
+            String keyAlias) {
+        try {
+            PublicKey pubKey = loadPublicKey(keyAlias);
+
+            Signature sig = Signature.getInstance("SHA512WITHECDSA");
+            sig.initVerify(pubKey);
+
+            byte[] signedData = signedStr.getBytes("UTF-8");
+            byte[] signature = fromBase64(signatureStr);
+            sig.update(signedData);
+            boolean result = sig.verify(signature);
 
             return result;
         } catch (GeneralSecurityException e) {

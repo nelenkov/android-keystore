@@ -2,6 +2,7 @@ package org.nick.androidkeystore;
 
 import java.math.BigInteger;
 import java.security.KeyPair;
+import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
 
 import javax.crypto.SecretKey;
@@ -9,6 +10,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.nick.androidkeystore.android.security.KeyStore;
 import org.nick.androidkeystore.android.security.KeyStoreJb43;
+import org.nick.androidkeystore.android.security.KeyStoreKk;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
@@ -35,6 +37,7 @@ public class KeystoreActivity extends Activity implements OnClickListener {
 
     private static final boolean IS_JB43 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2;
     private static final boolean IS_JB = Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN;
+    private static final boolean IS_KK = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
 
     private static final String EXTRA_CIPHERTEXT = "org.nick.androidkeystore.CIPHERTEXT";
     private static final String EXTRA_KEY_NAME = "org.nick.androidkeystore.KEY_NAME";
@@ -47,6 +50,7 @@ public class KeystoreActivity extends Activity implements OnClickListener {
 
     private static final String KEY_NAME = "aes_key";
     private static final String RSA_KEY_NAME = "rsa_key";
+    private static final String EC_KEY_NAME = "ec_key";
     private static final String PLAIN_TEXT = "Hello, KeyStore!";
 
     private static int keyNum = 0;
@@ -60,6 +64,8 @@ public class KeystoreActivity extends Activity implements OnClickListener {
     private Button verifyButton;
     private Button encryptRsaButton;
     private Button decryptRsaButton;
+    private Button signEcButton;
+    private Button verifyEcButton;
     private Button listButton;
     private Button resetButton;
 
@@ -93,7 +99,9 @@ public class KeystoreActivity extends Activity implements OnClickListener {
             decryptedText.setText(plaintext);
         }
 
-        if (IS_JB43) {
+        if (IS_KK) {
+            ks = KeyStoreKk.getInstance();
+        } else if (IS_JB43) {
             ks = KeyStoreJb43.getInstance();
         } else {
             ks = KeyStore.getInstance();
@@ -156,6 +164,10 @@ public class KeystoreActivity extends Activity implements OnClickListener {
             encryptRsaButton.setEnabled(enable);
             decryptRsaButton.setEnabled(enable);
         }
+        if (IS_KK) {
+            signEcButton.setEnabled(enable);
+            verifyEcButton.setEnabled(enable);
+        }
     }
 
     private void displayKeystoreState() {
@@ -167,7 +179,10 @@ public class KeystoreActivity extends Activity implements OnClickListener {
                 String status = String.format("Keystore state:%s", ks.state()
                         .toString());
                 String storeType = null;
-                if (IS_JB43) {
+                if (IS_KK) {
+                    storeType = ((KeyStoreKk) ks).isHardwareBacked() ? "HW-backed"
+                            : "SW only";
+                } else if (IS_JB43) {
                     storeType = ((KeyStoreJb43) ks).isHardwareBacked() ? "HW-backed"
                             : "SW only";
                 }
@@ -214,6 +229,14 @@ public class KeystoreActivity extends Activity implements OnClickListener {
         decryptRsaButton.setOnClickListener(this);
         decryptRsaButton.setEnabled(IS_JB);
 
+        signEcButton = (Button) findViewById(R.id.sign_ec_button);
+        signEcButton.setOnClickListener(this);
+        signEcButton.setEnabled(IS_KK);
+
+        verifyEcButton = (Button) findViewById(R.id.verify_ec_button);
+        verifyEcButton.setOnClickListener(this);
+        verifyEcButton.setEnabled(IS_KK);
+
         listButton = (Button) findViewById(R.id.list_button);
         listButton.setOnClickListener(this);
 
@@ -234,7 +257,18 @@ public class KeystoreActivity extends Activity implements OnClickListener {
             showKeys();
         }
 
-        if (IS_JB43) {
+        if (IS_KK) {
+            Log.d(TAG,
+                    "RSA supported " + KeyChain.isKeyAlgorithmSupported("RSA"));
+            Log.d(TAG, "RSA bound " + KeyChain.isBoundKeyAlgorithm("RSA"));
+
+            Log.d(TAG,
+                    "DSA supported " + KeyChain.isKeyAlgorithmSupported("DSA"));
+            Log.d(TAG, "DSA bound " + KeyChain.isBoundKeyAlgorithm("DSA"));
+
+            Log.d(TAG, "EC supported " + KeyChain.isKeyAlgorithmSupported("EC"));
+            Log.d(TAG, "EC bound " + KeyChain.isBoundKeyAlgorithm("EC"));
+        } else if (IS_JB43) {
             Log.d(TAG,
                     "RSA supported " + KeyChain.isKeyAlgorithmSupported("RSA"));
             Log.d(TAG, "RSA bound " + KeyChain.isBoundKeyAlgorithm("RSA"));
@@ -299,6 +333,10 @@ public class KeystoreActivity extends Activity implements OnClickListener {
                 encryptRsaOaep();
             } else if (v.getId() == R.id.decrypt_rsa_button) {
                 decryptRsa();
+            } else if (v.getId() == R.id.sign_ec_button) {
+                signEcDsa();
+            } else if (v.getId() == R.id.verify_ec_button) {
+                verifyEcDsa();
             }
         } catch (Exception e) {
             Log.e(TAG, "Unexpected error: " + e.getMessage(), e);
@@ -461,6 +499,65 @@ public class KeystoreActivity extends Activity implements OnClickListener {
                 String signatureStr = encryptedText.getText().toString();
                 boolean verified = Crypto.verifyRsaPss(signatureStr,
                         PLAIN_TEXT, signKeyName);
+                Log.d(TAG, "RSA PSS signature verification result: " + verified);
+
+                return new String[] { verified ? "Signature verifies"
+                        : "Invalid signature" };
+            }
+
+            @Override
+            protected void updateUi(String[] result) {
+                if (result == null) {
+                    Toast.makeText(KeystoreActivity.this,
+                            "Signature key key not found in keystore.",
+                            Toast.LENGTH_SHORT).show();
+
+                    return;
+                }
+
+                decryptedText.setText(result[0]);
+            }
+        }.execute();
+    }
+
+    private void signEcDsa() {
+        new KeystoreTask() {
+
+            @Override
+            protected String[] doWork() throws Exception {
+                String alias = EC_KEY_NAME + keyNum;
+                KeyPair kp = Crypto.generateEcPairWithGenerator(
+                        KeystoreActivity.this, alias);
+                Log.d(TAG, String.format("Genarated %d bit EC key pair",
+                        ((ECPublicKey) kp.getPublic()).getParams().getCurve()
+                                .getField().getFieldSize()));
+                signKeyName = alias;
+                keyNum++;
+
+                String signature = Crypto.signEc(signKeyName, PLAIN_TEXT);
+
+                return new String[] { signature };
+            }
+
+            @Override
+            protected void updateUi(String[] result) {
+                encryptedText.setText(result[0]);
+                decryptedText.setText("");
+
+                showKeys();
+
+            }
+        }.execute();
+    }
+
+    private void verifyEcDsa() {
+        new KeystoreTask() {
+
+            @Override
+            protected String[] doWork() throws Exception {
+                String signatureStr = encryptedText.getText().toString();
+                boolean verified = Crypto.verifyEc(signatureStr, PLAIN_TEXT,
+                        signKeyName);
                 Log.d(TAG, "RSA PSS signature verification result: " + verified);
 
                 return new String[] { verified ? "Signature verifies"

@@ -95,6 +95,26 @@
             android:layout_weight="1"
             android:text="Decrypt OAEP" />
     </LinearLayout>
+    
+      <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal" >
+
+        <Button
+            android:id="@+id/sign_ec_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Sign EC" />
+
+        <Button
+            android:id="@+id/verify_ec_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Verify EC" />
+    </LinearLayout>
 
     <Button
         android:id="@+id/list_button"
