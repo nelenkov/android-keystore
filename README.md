@@ -10,3 +10,6 @@ Accesses the credential storage directly using a private API. Not guaranteed to
 2013/8/21: updated for Android 4.3. Blog post: 
 http://nelenkov.blogspot.com/2013/08/credential-storage-enhancements-android-43.html
 
+2014/1/16: updated for Android 4.4. Major changes in Android are support for 
+EC and DSA keys. Added ECDSA sign/verify sample.
+
