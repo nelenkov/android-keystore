@@ -15,6 +15,7 @@
  */
 
 //package android.security;
+
 package org.nick.androidkeystore.android.security;
 
 import java.lang.reflect.InvocationTargetException;
@@ -26,9 +27,9 @@ import android.security.IKeystoreService;
 import android.util.Log;
 
 /**
- * @hide This should not be made public in its present form because it
- * assumes that private and secret key bytes are available and would
- * preclude the use of hardware crypto.
+ * @hide This should not be made public in its present form because it assumes
+ *       that private and secret key bytes are available and would preclude the
+ *       use of hardware crypto.
  */
 public class KeyStoreJb43 extends KeyStore {
     private static final String TAG = "KeyStore";
@@ -52,10 +53,10 @@ public class KeyStoreJb43 extends KeyStore {
     public static final int FLAG_NONE = 0;
     public static final int FLAG_ENCRYPTED = 1;
 
-    //    // States
-    //    public enum State {
-    //        UNLOCKED, LOCKED, UNINITIALIZED
-    //    };
+    // // States
+    // public enum State {
+    // UNLOCKED, LOCKED, UNINITIALIZED
+    // };
 
     private int mError = NO_ERROR;
 
@@ -98,14 +99,14 @@ public class KeyStoreJb43 extends KeyStore {
         }
 
         switch (ret) {
-        case NO_ERROR:
-            return State.UNLOCKED;
-        case LOCKED:
-            return State.LOCKED;
-        case UNINITIALIZED:
-            return State.UNINITIALIZED;
-        default:
-            throw new AssertionError(mError);
+            case NO_ERROR:
+                return State.UNLOCKED;
+            case LOCKED:
+                return State.LOCKED;
+            case UNINITIALIZED:
+                return State.UNINITIALIZED;
+            default:
+                throw new AssertionError(mError);
         }
     }
 
@@ -224,7 +225,7 @@ public class KeyStoreJb43 extends KeyStore {
     public boolean generate(String key, int uid, int flags) {
         try {
             return mBinder.generate(key, uid,
-                    NativeCryptoConstants.EVP_PKEY_RSA, 2048, flags, null) == NO_ERROR;
+                    flags) == NO_ERROR;
         } catch (RemoteException e) {
             Log.w(TAG, "Cannot connect to keystore", e);
             return false;
@@ -328,7 +329,7 @@ public class KeyStoreJb43 extends KeyStore {
 
     public boolean isHardwareBacked() {
         try {
-            return mBinder.is_hardware_backed("RSA") == NO_ERROR;
+            return mBinder.is_hardware_backed() == NO_ERROR;
         } catch (RemoteException e) {
             Log.w(TAG, "Cannot connect to keystore", e);
             return false;

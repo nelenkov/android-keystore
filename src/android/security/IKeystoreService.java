@@ -25,7 +25,7 @@ import android.os.RemoteException;
 /**
  * This must be kept manually in sync with system/security/keystore until AIDL
  * can generate both Java and C++ bindings.
- *
+ * 
  * @hide
  */
 public interface IKeystoreService extends IInterface {
@@ -244,6 +244,26 @@ public interface IKeystoreService extends IInterface {
                 return _result;
             }
 
+            // 4.3 version
+            public int generate(String name, int uid, int flags) throws RemoteException {
+                Parcel _data = Parcel.obtain();
+                Parcel _reply = Parcel.obtain();
+                int _result;
+                try {
+                    _data.writeInterfaceToken(DESCRIPTOR);
+                    _data.writeString(name);
+                    _data.writeInt(uid);
+                    _data.writeInt(flags);
+                    mRemote.transact(Stub.TRANSACTION_generate, _data, _reply, 0);
+                    _reply.readException();
+                    _result = _reply.readInt();
+                } finally {
+                    _reply.recycle();
+                    _data.recycle();
+                }
+                return _result;
+            }
+
             public int generate(String name, int uid, int keyType, int keySize, int flags,
                     byte[][] args) throws RemoteException {
                 Parcel _data = Parcel.obtain();
@@ -443,6 +463,24 @@ public interface IKeystoreService extends IInterface {
                 return _result;
             }
 
+            // 4.3 version
+            @Override
+            public int is_hardware_backed() throws RemoteException {
+                Parcel _data = Parcel.obtain();
+                Parcel _reply = Parcel.obtain();
+                int _result;
+                try {
+                    _data.writeInterfaceToken(DESCRIPTOR);
+                    mRemote.transact(Stub.TRANSACTION_is_hardware_backed, _data, _reply, 0);
+                    _reply.readException();
+                    _result = _reply.readInt();
+                } finally {
+                    _reply.recycle();
+                    _data.recycle();
+                }
+                return _result;
+            }
+
             @Override
             public int is_hardware_backed(String keyType) throws RemoteException {
                 Parcel _data = Parcel.obtain();
@@ -572,6 +610,8 @@ public interface IKeystoreService extends IInterface {
 
     public int zero() throws RemoteException;
 
+    public int generate(String name, int uid, int flags) throws RemoteException;
+
     public int generate(String name, int uid, int keyType, int keySize, int flags, byte[][] args)
             throws RemoteException;
 
@@ -593,6 +633,8 @@ public interface IKeystoreService extends IInterface {
 
     public int duplicate(String srcKey, int srcUid, String destKey, int destUid)
             throws RemoteException;
+
+    public int is_hardware_backed() throws RemoteException;
 
     public int is_hardware_backed(String string) throws RemoteException;
 
